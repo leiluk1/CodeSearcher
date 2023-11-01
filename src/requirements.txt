@@ -2,3 +2,6 @@ datasets
 dataprep
 gdown
 py7zr
+torch
+transformers
+peft
