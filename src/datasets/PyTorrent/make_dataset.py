@@ -68,13 +68,16 @@ class PyTorrentDataset:
                                                                               na=False)]
             logger.info(f'Len after selecting English summaries (*, NL): {len(self.dataframe)}')
             self.dataframe = self.dataframe[self.dataframe['code_tokens'].apply(len) <= code_tokens_cutoff_len]
+            self.dataframe['code_tokens'] = self.dataframe['code_tokens'].apply(lambda x: " ".join(x))
             logger.info(f'Len after dropping rows with code_tokens > {code_tokens_cutoff_len}: {len(self.dataframe)}')
 
             with open(f'{DATA_PROCESSED_FOLDER}{mode}.jsonl', 'w') as f:
                 f.write(self.dataframe.to_json(orient='records', lines=True))
         else:
-            self.dataframe = pd.read_json(os.path.join(DATA_PROCESSED_FOLDER, self.mode), lines=True)
-
+            data_path = os.path.join(DATA_PROCESSED_FOLDER, f'{self.mode}.jsonl')
+            logger.info(f'Loading processed dataframe from {data_path}')
+            self.dataframe = pd.read_json(data_path, lines=True)
+        print(self.dataframe.sample(5))
         logger.info(f'{mode} dataset length: {len(self.dataframe)}')
 
     def _read_gzip_jsonl(self, max_chunks=-1):
