@@ -9,9 +9,11 @@ def preprocess_function(samples):
     return None
 
 
-def create_python_dataset():
+def create_python_dataset(max_length):
     dataset = datasets.DatasetDict()
-    pytorrent_dataframes = [PyTorrentDataset(mode).get_pandas() for mode in PYTORRENT_MODES]
+    pytorrent_dataframes = [PyTorrentDataset(mode, code_tokens_cutoff_len=max_length).get_pandas() for mode in
+                            PYTORRENT_MODES]
+
     dataset['train'] = datasets.Dataset.from_pandas(pytorrent_dataframes[0])
     dataset['val'] = datasets.Dataset.from_pandas(pytorrent_dataframes[1])
     dataset['test'] = datasets.Dataset.from_pandas(pytorrent_dataframes[2])

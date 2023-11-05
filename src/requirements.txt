@@ -5,3 +5,7 @@ py7zr
 torch
 transformers
 peft
+evaluate
+rouge-score
+fire
+loguru
