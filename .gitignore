@@ -238,5 +238,4 @@ fabric.properties
 data/
 checkpoints/
 wandb/
-models/
 samples/
