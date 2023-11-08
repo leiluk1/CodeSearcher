@@ -1,16 +1,17 @@
 import os
 import random
 import sys
-from typing import Optional, List, Dict
 
 import evaluate
 import numpy as np
 import torch
 from fire import Fire
 from loguru import logger
-from peft import PrefixTuningConfig, TaskType, get_peft_model, LoraConfig, PromptTuningConfig, PromptEncoderConfig
+from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptEncoderConfig, PeftConfig, PeftModel
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2SeqTrainer, AutoModelForSeq2SeqLM, \
-    AutoTokenizer, AutoModel, Trainer
+    AutoTokenizer, AutoModel
 
 
 def _setup_seq2seq_model(model_checkpoint, num_virtual_tokens, device):
@@ -69,10 +70,10 @@ def _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_m
     def preprocess_function(examples):
         model_inputs = tokenizer(examples['code_tokens'], max_length=model_max_src_length - num_virtual_tokens,
                                  padding='max_length', truncation=True)
-        labels = tokenizer(examples['summary'], max_length=model_max_tgt_length - num_virtual_tokens,
-                           padding='max_length', truncation=True)
-        labels[labels == tokenizer.pad_token_id] = -100
-        model_inputs["labels"] = labels["input_ids"].copy()
+        summary = tokenizer(examples['summary'], max_length=model_max_tgt_length - num_virtual_tokens,
+                            padding='max_length', truncation=True)
+        summary[summary == tokenizer.pad_token_id] = -100
+        model_inputs["labels"] = summary["input_ids"].copy()
         return model_inputs
 
     tokenized_dataset = raw_dataset.map(preprocess_function,
@@ -81,32 +82,6 @@ def _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_m
                                         load_from_cache_file=False,
                                         num_proc=-1)
     return tokenized_dataset
-
-
-def _setup_apn_dataset(raw_dataset, negatives_strategy, tokenizer,
-                       model_max_src_length, model_max_tgt_length, num_virtual_tokens):
-    # apn - Anchor, Positive, Negative
-    assert negatives_strategy in ['random', 'code_distance', 'summary_distance', 'momentum_encoder']
-    # If "code_distance" is selected, choose negatives by distance between code emb.
-    # In this setting, anchor = summary, positive = code, negative = summary whose corr. code is far from positive
-    # If "summary_distance" is selected, then
-    # anchor = code, positive = summary, negative = code whose corr. summary is far from positive
-
-    # MoCo: https://github.com/facebookresearch/moco/blob/3631be074a0a14ab85c206631729fe035e54b525/moco/builder.py#L6
-
-    return None
-
-
-def _get_embeddings_loss_fn(loss_type: str):
-    if loss_type == 'triplet':
-        return torch.nn.TripletMarginWithDistanceLoss(distance_function=torch.nn.CosineSimilarity(), reduction='mean')
-    elif loss_type == 'contrastive':
-        return None
-    elif loss_type == 'sigmoid':
-        return None
-    else:
-        logger.error(f'Unsupported embeddings loss type :{loss_type}')
-        exit(-1)
 
 
 def train_seq2seq(output_dir: str,
@@ -182,44 +157,78 @@ def train_embeddings(output_dir: str,
                      epochs: int,
                      language,
                      num_virtual_tokens: int,
-                     loss_type: str,
                      model_max_src_length: int = 320,
                      model_max_tgt_length: int = 128,
                      train_batch_size: int = 32,
                      eval_batch_size: int = 16,
                      gradient_accumulation_steps: int = 4,
+                     label_smoothing: float = 0,
                      device_type: str = 'cuda:0',
                      model_checkpoint: str = 'Salesforce/codet5p-110m-embedding',
                      ):
-    # Ok so I have basically two options:
-    #   utilize HF Trainer or write my own training loop (I'll do this if HF fails somewhere)
-
     device = torch.device(device_type)
     embeddings_model, tokenizer = _setup_embeddings_model(model_checkpoint, num_virtual_tokens, device)
+    peft_model_id = os.path.join(output_dir, model_checkpoint)
 
     raw_dataset = DATASET_MAP[language](model_max_src_length)
 
-    apn_dataset = _setup_apn_dataset(raw_dataset, 'random', tokenizer, model_max_src_length, model_max_tgt_length,
-                                     num_virtual_tokens)
-    # train_loader = DataLoader(seq2seq_dataset['train'], batch_size=train_batch_size, shuffle=True)
-    # val_loader = DataLoader(seq2seq_dataset['val'], batch_size=eval_batch_size, shuffle=False)
-    # test_loader = DataLoader(seq2seq_dataset['test'], batch_size=eval_batch_size, shuffle=False)
+    pairs_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
+                                           num_virtual_tokens)
 
-    emb_loss = _get_embeddings_loss_fn(loss_type)
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_checkpoint)  # We still need seq2seq dataset
 
-    class EmbeddingsTrainer(Trainer):
-        def compute_loss(self, model, inputs, return_outputs=False):
-            positive = inputs.pop("positive")
-            negative = inputs.pop("negative")
+    train_loader = DataLoader(pairs_dataset['train'], batch_size=train_batch_size, shuffle=True,
+                              collate_fn=data_collator)
+    val_loader = DataLoader(pairs_dataset['val'], batch_size=eval_batch_size, shuffle=False, collate_fn=data_collator)
+    test_loader = DataLoader(pairs_dataset['test'], batch_size=eval_batch_size, shuffle=False, collate_fn=data_collator)
 
-            anchor_output = model(**inputs)
+    emb_loss = TextCodeContrastiveLoss(smooth=label_smoothing)
+    optimizer = torch.optim.AdamW(embeddings_model.parameters())
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    T = torch.nn.Parameter(data=torch.Tensor(1), requires_grad=True)
 
-            anchor_emb = anchor_output.get("logits")[:, 0, :]
-            positive_emb = model(positive).get("logits")[:, 0, :]
-            negative_emb = model(negative).get("logits")[:, 0, :]
+    best_val_loss = float('inf')
 
-            loss = emb_loss(anchor_emb, positive_emb, negative_emb)
-            return (loss, anchor_output) if return_outputs else loss
+    for epoch in tqdm(range(epochs)):
+        train_loss = 0
+        embeddings_model.train()
+        for i, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc='Train epoch'):
+            batch.to(device)
+            text_batch = batch.pop("labels")
+            code_embeddings = embeddings_model(**batch)
+            text_embeddings = embeddings_model(text_batch)
+
+            loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=T)
+            loss.backward()
+            train_loss += loss.item()
+
+            if (i + 1) % gradient_accumulation_steps == 0:
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+        logger.info(f"Training loss of epoch {epoch}: {train_loss / len(train_loader)}")
+
+        val_loss = 0
+
+        for i, batch in tqdm(enumerate(val_loader), total=len(val_loader), desc='Val epoch'):
+            batch.to(device)
+            text_batch = batch.pop("labels")
+
+            with torch.no_grad():
+                code_embeddings = embeddings_model(**batch)
+                text_embeddings = embeddings_model(text_batch)
+                loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=T)
+            val_loss += loss.item()
+        logger.info(f"Validation loss of epoch {epoch}: {val_loss / len(val_loader)} | Validation MRR: {val_mrr}")
+        if val_loss / len(val_loader) > best_val_loss:
+            best_val_loss = val_loss / len(val_loader)
+            embeddings_model.save_pretrained(peft_model_id)
+
+    # config = PeftConfig.from_pretrained(peft_model_id)
+    #
+    # model = AutoModelForSeq2SeqLM.from_pretrained(config.base_model_name_or_path, device_map={"": 0})
+    # model = PeftModel.from_pretrained(model, peft_model_id)
+    # model.eval()
 
 
 if __name__ == '__main__':
@@ -228,10 +237,10 @@ if __name__ == '__main__':
     random.seed(0)
 
     from src.datasets.make_datasets import create_python_dataset, create_java_dataset
+    from src.losses import TextCodeContrastiveLoss
 
     DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset, 'C#': None, 'SQL': None}
 
-    # _setup_embeddings_model('Salesforce/codet5p-110m-embedding', 20, torch.device('cuda:0'))
     Fire(
         {
             'seq2seq': train_seq2seq,
