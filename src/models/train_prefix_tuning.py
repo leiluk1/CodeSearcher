@@ -166,6 +166,8 @@ def train_embeddings(output_dir: str,
                      device_type: str = 'cuda:0',
                      model_checkpoint: str = 'Salesforce/codet5p-110m-embedding',
                      ):
+    # Future refactoring plan: to avoid duplicate code, abstract training from model obtaining ?
+    #   (get model) -> (choose training type) -> ...
     device = torch.device(device_type)
     embeddings_model, tokenizer = _setup_embeddings_model(model_checkpoint, num_virtual_tokens, device)
     peft_model_id = os.path.join(output_dir, model_checkpoint)
@@ -219,7 +221,7 @@ def train_embeddings(output_dir: str,
                 text_embeddings = embeddings_model(text_batch)
                 loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=T)
             val_loss += loss.item()
-        logger.info(f"Validation loss of epoch {epoch}: {val_loss / len(val_loader)} | Validation MRR: {val_mrr}")
+        logger.info(f"Validation loss of epoch {epoch}: {val_loss / len(val_loader)}")
         if val_loss / len(val_loader) > best_val_loss:
             best_val_loss = val_loss / len(val_loader)
             embeddings_model.save_pretrained(peft_model_id)
