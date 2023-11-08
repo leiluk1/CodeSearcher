@@ -6,7 +6,7 @@ class TextCodeContrastiveLoss(torch.nn.Module):
 
     def __init__(self, smooth=0):
         super().__init__()
-        self.H = torch.nn.CrossEntropyLoss(label_smoothing=smooth)
+        self.H = torch.nn.CrossEntropyLoss(label_smoothing=smooth, reduction='mean')
 
     def forward(self, text_batch: torch.Tensor, code_batch: torch.Tensor, T):
         """
@@ -19,11 +19,8 @@ class TextCodeContrastiveLoss(torch.nn.Module):
 
         similarities = text_batch @ code_batch.T
 
-        p_t2c = torch.nn.functional.softmax(similarities / T, dim=-1)
-        p_c2t = torch.nn.functional.softmax(similarities.T / T, dim=-1)
-
         gt_t = torch.eye(text_batch.shape[0])
         gt_c = torch.eye(code_batch.shape[0])
-        loss = 0.5 * self.H(p_t2c, gt_t) + 0.5 * self.H(p_c2t, gt_c)
+        loss = 0.5 * self.H(similarities / T, gt_t) + 0.5 * self.H(similarities.T / T, gt_c)
 
         return loss

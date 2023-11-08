@@ -1,6 +1,7 @@
 import os
 import shutil
 import zipfile
+import re
 
 import pandas as pd
 import requests
@@ -63,9 +64,7 @@ class PyTorrentDataset:
             os.makedirs(DATA_PROCESSED_FOLDER, exist_ok=True)
             raw_dataframe = self._read_gzip_jsonl(max_chunks=max_chunks)
             logger.info(f'Raw dataframe length: {len(raw_dataframe)}')
-            self.dataframe = raw_dataframe[raw_dataframe.summary.str.contains('[a-zA-Z0-9_\-\s]+',
-                                                                              regex=True,
-                                                                              na=False)]
+            self.dataframe = raw_dataframe[raw_dataframe.summary.apply(lambda x: re.match('[a-zA-Z0-9_\-\s]+', x) is not None)]
             logger.info(f'Len after selecting English summaries (*, NL): {len(self.dataframe)}')
             self.dataframe = self.dataframe[self.dataframe['code_tokens'].apply(len) <= code_tokens_cutoff_len]
             self.dataframe['code_tokens'] = self.dataframe['code_tokens'].apply(lambda x: " ".join(x))

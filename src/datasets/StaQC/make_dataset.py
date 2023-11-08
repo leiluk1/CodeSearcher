@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 
 
 # DATA_RAW_FOLDER = 'data/raw/StaQC/'
-MODES = ['train', 'test', 'val']
+MODES = ['train', 'val', 'test']
 LANGUAGES = ['Python', 'SQL']
 SUBSET_MODES = ['man_python', 'sca_python', 'man_sql', 'sca_sql']
 

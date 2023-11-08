@@ -1,3 +1,4 @@
+import gc
 import os
 import random
 import sys
@@ -7,7 +8,7 @@ import numpy as np
 import torch
 from fire import Fire
 from loguru import logger
-from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptEncoderConfig, PeftConfig, PeftModel
+from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptEncoderConfig
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2SeqTrainer, AutoModelForSeq2SeqLM, \
@@ -80,7 +81,8 @@ def _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_m
                                         batched=True,
                                         remove_columns=raw_dataset["train"].column_names,
                                         load_from_cache_file=False,
-                                        num_proc=-1)
+                                        num_proc=6,
+                                        desc='Tokenizing dataset')
     return tokenized_dataset
 
 
@@ -156,7 +158,7 @@ def train_seq2seq(output_dir: str,
 def train_embeddings(output_dir: str,
                      epochs: int,
                      language,
-                     num_virtual_tokens: int,
+                     num_virtual_tokens: int = 20,
                      model_max_src_length: int = 320,
                      model_max_tgt_length: int = 128,
                      train_batch_size: int = 32,
@@ -176,6 +178,10 @@ def train_embeddings(output_dir: str,
 
     pairs_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
                                            num_virtual_tokens)
+    train_dataset_len, val_dataset_len, test_dataset_len = len(pairs_dataset['train']), len(pairs_dataset['val']), \
+        len(pairs_dataset['test'])
+    logger.info(f'Dataset created: {train_dataset_len} training samples, {val_dataset_len} validation samples,'
+                f' {test_dataset_len} testing samples')
 
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_checkpoint)  # We still need seq2seq dataset
 
@@ -190,7 +196,7 @@ def train_embeddings(output_dir: str,
     T = torch.nn.Parameter(data=torch.Tensor(1), requires_grad=True)
 
     best_val_loss = float('inf')
-
+    logger.info('Training started')
     for epoch in tqdm(range(epochs)):
         train_loss = 0
         embeddings_model.train()
@@ -208,6 +214,9 @@ def train_embeddings(output_dir: str,
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            gc.collect()
         logger.info(f"Training loss of epoch {epoch}: {train_loss / len(train_loader)}")
 
         val_loss = 0
@@ -231,6 +240,7 @@ def train_embeddings(output_dir: str,
     # model = AutoModelForSeq2SeqLM.from_pretrained(config.base_model_name_or_path, device_map={"": 0})
     # model = PeftModel.from_pretrained(model, peft_model_id)
     # model.eval()
+    # Mini-batch MRR ?
 
 
 if __name__ == '__main__':
@@ -243,6 +253,7 @@ if __name__ == '__main__':
 
     DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset, 'C#': None, 'SQL': None}
 
+    # python .\src\models\train_prefix_tuning.py embeddings --output_dir="output" --epochs=1 --language="Python"
     Fire(
         {
             'seq2seq': train_seq2seq,
