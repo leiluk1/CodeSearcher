@@ -16,7 +16,7 @@ from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2S
 
 
 def _setup_seq2seq_model(model_checkpoint, num_virtual_tokens, device):
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_checkpoint, trust_remote_code=True)
+    model = AutoModel.from_pretrained(model_checkpoint, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
 
     peft_config = PrefixTuningConfig(
