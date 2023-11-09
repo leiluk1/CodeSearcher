@@ -39,13 +39,11 @@ def create_java_dataset(**kwargs):
 
     xlcost_dataframes = [XLCoSTDataset(mode=mode, language='Java').get_pandas() for mode in XLCOST_MODES]
 
-    staqc_dataframes = [StaQCDataset(mode=mode, language='Java').get_pandas() for mode in STAQC_MODES]
-
     codesc_dataframes = [CoDescDataset(mode=mode).get_pandas() for mode in CODESC_MODES]
 
     dataframes = [
         pd.concat(
-            [xlcost_dataframes[i], codesc_dataframes[i], staqc_dataframes[i]],
+            [xlcost_dataframes[i], codesc_dataframes[i]],
             ignore_index=True
         )
         for i in range(3)
