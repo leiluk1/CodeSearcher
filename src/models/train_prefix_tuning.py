@@ -80,8 +80,6 @@ def _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_m
     tokenized_dataset = raw_dataset.map(preprocess_function,
                                         batched=True,
                                         remove_columns=raw_dataset["train"].column_names,
-                                        load_from_cache_file=False,
-                                        num_proc=6,
                                         desc='Tokenizing dataset')
     return tokenized_dataset
 
@@ -191,22 +189,21 @@ def train_embeddings(output_dir: str,
     test_loader = DataLoader(pairs_dataset['test'], batch_size=eval_batch_size, shuffle=False, collate_fn=data_collator)
 
     emb_loss = TextCodeContrastiveLoss(smooth=label_smoothing)
-    optimizer = torch.optim.AdamW(embeddings_model.parameters())
+    optimizer = torch.optim.AdamW(embeddings_model.parameters(), lr=1e-3)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    T = torch.nn.Parameter(data=torch.Tensor(1), requires_grad=True)
 
     best_val_loss = float('inf')
     logger.info('Training started')
     for epoch in tqdm(range(epochs)):
         train_loss = 0
         embeddings_model.train()
-        for i, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc='Train epoch'):
+        for i, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc='Train epoch', position=0):
             batch.to(device)
             text_batch = batch.pop("labels")
             code_embeddings = embeddings_model(**batch)
             text_embeddings = embeddings_model(text_batch)
 
-            loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=T)
+            loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings)
             loss.backward()
             train_loss += loss.item()
 
@@ -220,18 +217,17 @@ def train_embeddings(output_dir: str,
         logger.info(f"Training loss of epoch {epoch}: {train_loss / len(train_loader)}")
 
         val_loss = 0
-
-        for i, batch in tqdm(enumerate(val_loader), total=len(val_loader), desc='Val epoch'):
+        for i, batch in tqdm(enumerate(val_loader), total=len(val_loader), desc='Val epoch', position=0):
             batch.to(device)
             text_batch = batch.pop("labels")
 
             with torch.no_grad():
                 code_embeddings = embeddings_model(**batch)
                 text_embeddings = embeddings_model(text_batch)
-                loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=T)
+                loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings)
             val_loss += loss.item()
         logger.info(f"Validation loss of epoch {epoch}: {val_loss / len(val_loader)}")
-        if val_loss / len(val_loader) > best_val_loss:
+        if val_loss / len(val_loader) < best_val_loss:
             best_val_loss = val_loss / len(val_loader)
             embeddings_model.save_pretrained(peft_model_id)
 
@@ -240,7 +236,6 @@ def train_embeddings(output_dir: str,
     # model = AutoModelForSeq2SeqLM.from_pretrained(config.base_model_name_or_path, device_map={"": 0})
     # model = PeftModel.from_pretrained(model, peft_model_id)
     # model.eval()
-    # Mini-batch MRR ?
 
 
 if __name__ == '__main__':
@@ -253,7 +248,6 @@ if __name__ == '__main__':
 
     DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset, 'C#': None, 'SQL': None}
 
-    # python .\src\models\train_prefix_tuning.py embeddings --output_dir="output" --epochs=1 --language="Python"
     Fire(
         {
             'seq2seq': train_seq2seq,

@@ -59,7 +59,6 @@ class XLCoSTDataset:
             self.dataframe = self._load_generation_dataframe()
         else:
             self.dataframe = self._load_search_dataframe()
-        print(self.dataframe.sample(5))
         logger.info(f'XLCoST {language} {mode} generation={generation} dataset length: {len(self.dataframe)}')
 
     def _load_generation_dataframe(self):

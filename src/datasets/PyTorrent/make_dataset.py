@@ -76,7 +76,6 @@ class PyTorrentDataset:
             data_path = os.path.join(DATA_PROCESSED_FOLDER, f'{self.mode}.jsonl')
             logger.info(f'Loading processed dataframe from {data_path}')
             self.dataframe = pd.read_json(data_path, lines=True)
-        print(self.dataframe.sample(5))
         logger.info(f'{mode} dataset length: {len(self.dataframe)}')
 
     def _read_gzip_jsonl(self, max_chunks=-1):
