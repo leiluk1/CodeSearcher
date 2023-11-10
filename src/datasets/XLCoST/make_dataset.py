@@ -7,7 +7,7 @@ from loguru import logger
 
 DATA_RAW_FOLDER = 'data/raw/XLCoST_data/'
 DATA_ID = "1tZfsYQgWmc2gG340ru5VbrZ5aLIZ41_6"
-MODES = ['train', 'test', 'val']
+MODES = ['train', 'valid', 'test']
 LANGUAGES = ['C', 'C#', 'C++', 'Java', 'Javascript', 'PHP', 'Python']
 
 
@@ -31,11 +31,11 @@ def _code_tokens_to_str(tokens: list):
         elif token == 'DEDENT':
             indent_level -= 1
         elif token == 'NEW_LINE':
-            result += '\n' + '\t' * indent_level + line
+            result += ('\n' + '\t' * indent_level + line)
             line = ''
         else:
             line += token + " "
-    return result
+    return result[1:]
 
 
 class XLCoSTDataset:
@@ -59,7 +59,6 @@ class XLCoSTDataset:
             self.dataframe = self._load_generation_dataframe()
         else:
             self.dataframe = self._load_search_dataframe()
-        # print(self.dataframe.sample(5))
         logger.info(f'XLCoST {language} {mode} generation={generation} dataset length: {len(self.dataframe)}')
 
     def _load_generation_dataframe(self):
