@@ -101,7 +101,7 @@ def train_seq2seq(output_dir: str,
     device = torch.device(device_type)
     model, tokenizer = _setup_seq2seq_model(model_checkpoint, num_virtual_tokens, device)
 
-    raw_dataset = DATASET_MAP[language](model_max_src_length)
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
                                                num_virtual_tokens)
@@ -172,7 +172,7 @@ def train_embeddings(output_dir: str,
     embeddings_model, tokenizer = _setup_embeddings_model(model_checkpoint, num_virtual_tokens, device)
     peft_model_id = os.path.join(output_dir, model_checkpoint)
 
-    raw_dataset = DATASET_MAP[language](model_max_src_length)
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
 
     pairs_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
                                            num_virtual_tokens)
@@ -243,10 +243,12 @@ if __name__ == '__main__':
     torch.manual_seed(0)
     random.seed(0)
 
-    from src.datasets.make_datasets import create_python_dataset, create_java_dataset
+    from src.datasets.make_datasets import create_python_dataset, create_java_dataset,\
+        create_csharp_dataset, create_sql_dataset, create_cpp_dataset
     from src.losses import TextCodeContrastiveLoss
 
-    DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset, 'C#': None, 'SQL': None}
+    DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset,
+                   'Csharp': create_csharp_dataset, 'SQL': create_sql_dataset, 'C++': create_cpp_dataset}
 
     Fire(
         {

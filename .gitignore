@@ -239,3 +239,4 @@ data/
 checkpoints/
 wandb/
 samples/
+output/
