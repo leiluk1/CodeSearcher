@@ -8,11 +8,10 @@ import numpy as np
 import torch
 from fire import Fire
 from loguru import logger
-from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptEncoderConfig
+from peft import PrefixTuningConfig, TaskType, get_peft_model, LoraConfig, PromptTuningConfig, PeftConfig, PeftModel
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2SeqTrainer, AutoModelForSeq2SeqLM, \
-    AutoTokenizer, AutoModel
+from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2SeqTrainer, AutoTokenizer, AutoModel
 
 
 def _setup_seq2seq_model(model_checkpoint, num_virtual_tokens, device):
@@ -42,10 +41,10 @@ def _setup_embeddings_model(model_checkpoint, num_virtual_tokens, device):
     tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
     model = AutoModel.from_pretrained(model_checkpoint, trust_remote_code=True)
 
-    peft_config = PromptEncoderConfig(
-        task_type=TaskType.FEATURE_EXTRACTION,
-        num_virtual_tokens=num_virtual_tokens,
-        inference_mode=False
+    # PromptEncoderConfig failed to overfit a single batch, so it is PromptTuningConfig used here instead
+    peft_config = PromptTuningConfig(
+         num_virtual_tokens=num_virtual_tokens,
+         task_type="FEATURE_EXTRACTION",
     )
     for param in model.parameters():
         param.requires_grad = False
@@ -162,14 +161,14 @@ def train_embeddings(output_dir: str,
                      train_batch_size: int = 32,
                      eval_batch_size: int = 16,
                      gradient_accumulation_steps: int = 4,
+                     learning_rate: float = 0.001,
                      label_smoothing: float = 0,
                      device_type: str = 'cuda:0',
                      model_checkpoint: str = 'Salesforce/codet5p-110m-embedding',
                      ):
-    # Future refactoring plan: to avoid duplicate code, abstract training from model obtaining ?
-    #   (get model) -> (choose training type) -> ...
     device = torch.device(device_type)
     embeddings_model, tokenizer = _setup_embeddings_model(model_checkpoint, num_virtual_tokens, device)
+    temperature = torch.tensor([0.08], requires_grad=True, device=device)
     peft_model_id = os.path.join(output_dir, model_checkpoint)
 
     raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
@@ -189,7 +188,8 @@ def train_embeddings(output_dir: str,
     test_loader = DataLoader(pairs_dataset['test'], batch_size=eval_batch_size, shuffle=False, collate_fn=data_collator)
 
     emb_loss = TextCodeContrastiveLoss(smooth=label_smoothing)
-    optimizer = torch.optim.AdamW(embeddings_model.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW([{'params': embeddings_model.parameters()}, {'params': temperature}],
+                                  lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     best_val_loss = float('inf')
@@ -201,13 +201,14 @@ def train_embeddings(output_dir: str,
             batch.to(device)
             text_batch = batch.pop("labels")
             code_embeddings = embeddings_model(**batch)
-            text_embeddings = embeddings_model(text_batch)
+            text_embeddings = embeddings_model(text_batch, attention_mask=(text_batch != 0).int())
 
-            loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings)
+            loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=temperature)
             loss.backward()
             train_loss += loss.item()
 
             if (i + 1) % gradient_accumulation_steps == 0:
+                torch.nn.utils.clip_grad_norm_(temperature, 1.0)
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
@@ -223,19 +224,31 @@ def train_embeddings(output_dir: str,
 
             with torch.no_grad():
                 code_embeddings = embeddings_model(**batch)
-                text_embeddings = embeddings_model(text_batch)
-                loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings)
+                text_embeddings = embeddings_model(text_batch, attention_mask=(text_batch != 0).int())
+                loss = emb_loss(text_batch=text_embeddings, code_batch=code_embeddings, T=temperature)
             val_loss += loss.item()
         logger.info(f"Validation loss of epoch {epoch}: {val_loss / len(val_loader)}")
         if val_loss / len(val_loader) < best_val_loss:
             best_val_loss = val_loss / len(val_loader)
             embeddings_model.save_pretrained(peft_model_id)
 
-    # config = PeftConfig.from_pretrained(peft_model_id)
-    #
-    # model = AutoModelForSeq2SeqLM.from_pretrained(config.base_model_name_or_path, device_map={"": 0})
-    # model = PeftModel.from_pretrained(model, peft_model_id)
-    # model.eval()
+    config = PeftConfig.from_pretrained(peft_model_id)
+
+    model = AutoModel.from_pretrained(config.base_model_name_or_path, device_map={"": 0}, trust_remote_code=True)
+    model = PeftModel.from_pretrained(model, peft_model_id)
+    model.eval()
+    test_text_embeddings = []
+    test_code_embeddings = []
+    for i, batch in tqdm(enumerate(test_loader), total=len(test_loader), desc='Testing the model', position=0):
+        batch.to(device)
+        text_batch = batch.pop("labels")
+
+        with torch.no_grad():
+            test_code_embeddings.append(embeddings_model(**batch).cpu())
+            test_text_embeddings.append(embeddings_model(text_batch, attention_mask=(text_batch != 0).int()).cpu())
+    similarity_matrix = torch.cat(test_text_embeddings) @ torch.cat(test_code_embeddings).T
+    test_MRR = mrr(similarity_matrix)
+    logger.info(f'Test set MRR = {test_MRR}')
 
 
 if __name__ == '__main__':
@@ -243,9 +256,10 @@ if __name__ == '__main__':
     torch.manual_seed(0)
     random.seed(0)
 
-    from src.datasets.make_datasets import create_python_dataset, create_java_dataset,\
+    from src.datasets.make_datasets import create_python_dataset, create_java_dataset, \
         create_csharp_dataset, create_sql_dataset, create_cpp_dataset
     from src.losses import TextCodeContrastiveLoss
+    from src.metrics import mrr
 
     DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset,
                    'Csharp': create_csharp_dataset, 'SQL': create_sql_dataset, 'C++': create_cpp_dataset}
