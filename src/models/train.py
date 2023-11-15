@@ -60,7 +60,6 @@ def train_seq2seq(model,
                   warmup_steps: int = 200,
                   fp16: bool = False,
                   device_type: str = 'cuda:0',
-                  model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'
                   ):
     device = torch.device(device_type)
 
@@ -148,6 +147,7 @@ def train_embeddings(embeddings_model,
 
     best_val_loss = float('inf')
     logger.info('Training started')
+    evaluation(embeddings_model, test_loader, device, desc='Zero-shot MRR = ')
     for epoch in tqdm(range(epochs)):
         train_loss = 0
         embeddings_model.train()
@@ -187,23 +187,12 @@ def train_embeddings(embeddings_model,
             embeddings_model.save_pretrained(peft_model_id)
 
     logger.info(f'Final temperature T: {temperature}')
-    config = PeftConfig.from_pretrained(peft_model_id)
 
+    config = PeftConfig.from_pretrained(peft_model_id)
     model = AutoModel.from_pretrained(config.base_model_name_or_path, device_map={"": 0}, trust_remote_code=True)
     model = PeftModel.from_pretrained(model, peft_model_id)
-    model.eval()
-    test_text_embeddings = []
-    test_code_embeddings = []
-    for i, batch in tqdm(enumerate(test_loader), total=len(test_loader), desc='Testing the model', position=0):
-        batch.to(device)
-        text_batch = batch.pop("labels")
 
-        with torch.no_grad():
-            test_code_embeddings.append(embeddings_model(**batch).cpu())
-            test_text_embeddings.append(embeddings_model(text_batch, attention_mask=(text_batch != 0).int()).cpu())
-    similarity_matrix = torch.cat(test_text_embeddings) @ torch.cat(test_code_embeddings).T
-    test_MRR = mrr(similarity_matrix)
-    logger.info(f'Test set MRR = {test_MRR}')
+    evaluation(model, test_loader, device, desc='MRR after training = ')
 
 
 def train_embeddings_prompt(output_dir: str,
@@ -284,7 +273,6 @@ def train_seq2seq_prefix(output_dir: str,
                          device_type: str = 'cuda:0',
                          model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
     device = torch.device(device_type)
-
     peft_config = PrefixTuningConfig(
         task_type=TaskType.SEQ_2_SEQ_LM,
         inference_mode=False,
@@ -297,7 +285,7 @@ def train_seq2seq_prefix(output_dir: str,
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
                                                num_virtual_tokens)
     train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type, model_checkpoint)
+                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 def train_seq2seq_lora(output_dir: str,
@@ -331,7 +319,7 @@ def train_seq2seq_lora(output_dir: str,
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
     train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type, model_checkpoint)
+                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 if __name__ == '__main__':
@@ -339,13 +327,9 @@ if __name__ == '__main__':
     torch.manual_seed(0)
     random.seed(0)
 
-    from src.datasets.make_datasets import create_python_dataset, create_java_dataset, \
-        create_csharp_dataset, create_sql_dataset, create_cpp_dataset
     from src.losses import TextCodeContrastiveLoss
-    from src.metrics import mrr
-
-    DATASET_MAP = {'Python': create_python_dataset, 'Java': create_java_dataset,
-                   'Csharp': create_csharp_dataset, 'SQL': create_sql_dataset, 'C++': create_cpp_dataset}
+    from src.fixtures import DATASET_MAP
+    from src.models.evaluation import evaluation
 
     Fire(
         {
