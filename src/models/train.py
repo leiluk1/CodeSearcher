@@ -8,7 +8,8 @@ import numpy as np
 import torch
 from fire import Fire
 from loguru import logger
-from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptTuningConfig, PeftConfig, PeftModel, LoraConfig
+from peft import PrefixTuningConfig, TaskType, get_peft_model, PromptTuningConfig, PeftConfig, PeftModel, LoraConfig, \
+    IA3Config, AdaLoraConfig
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, Seq2SeqTrainer, AutoTokenizer, AutoModel
@@ -147,7 +148,7 @@ def train_embeddings(embeddings_model,
 
     best_val_loss = float('inf')
     logger.info('Training started')
-    evaluation(embeddings_model, test_loader, device, desc='Zero-shot MRR = ')
+    # evaluation(embeddings_model, test_loader, device, desc='Zero-shot MRR = ')  # not sure if this is reasonable
     for epoch in tqdm(range(epochs)):
         train_loss = 0
         embeddings_model.train()
@@ -230,6 +231,7 @@ def train_embeddings_lora(output_dir: str,
                           lora_alpha: int = 32,
                           lora_dropout: float = 0.1,
                           lora_bias: str = 'none',
+                          lora_target_modules: str = 'qv',
                           model_max_src_length: int = 320,
                           model_max_tgt_length: int = 128,
                           train_batch_size: int = 32,
@@ -247,7 +249,76 @@ def train_embeddings_lora(output_dir: str,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         bias=lora_bias,
-        target_modules=['q', 'v'],
+        target_modules=list(lora_target_modules),
+    )
+    embeddings_model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
+
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
+
+    pairs_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
+
+    train_embeddings(embeddings_model, tokenizer, pairs_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
+                     gradient_accumulation_steps, learning_rate, label_smoothing, device_type, model_checkpoint)
+
+
+def train_embeddings_ia3(output_dir: str,
+                         epochs: int,
+                         language: str,
+                         target_modules: str = 'qv',
+                         model_max_src_length: int = 320,
+                         model_max_tgt_length: int = 128,
+                         train_batch_size: int = 32,
+                         eval_batch_size: int = 16,
+                         gradient_accumulation_steps: int = 4,
+                         learning_rate: float = 0.001,
+                         label_smoothing: float = 0,
+                         device_type: str = 'cuda:0',
+                         model_checkpoint: str = 'Salesforce/codet5p-110m-embedding'
+                         ):
+    device = torch.device(device_type)
+
+    peft_config = IA3Config(
+        target_modules=list(target_modules) + ['o'],
+        feedforward_modules=['o']
+    )
+    embeddings_model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
+
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
+
+    pairs_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
+
+    train_embeddings(embeddings_model, tokenizer, pairs_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
+                     gradient_accumulation_steps, learning_rate, label_smoothing, device_type, model_checkpoint)
+
+
+def train_embeddings_adalora(output_dir: str,
+                             epochs: int,
+                             language: str,
+                             adalora_target_r: int = 8,
+                             adalora_init_r: int = 12,
+                             adalora_alpha: int = 32,
+                             adalora_dropout: float = 0.1,
+                             adalora_bias: str = 'none',
+                             adalora_target_models: str = 'qv',
+                             model_max_src_length: int = 320,
+                             model_max_tgt_length: int = 128,
+                             train_batch_size: int = 32,
+                             eval_batch_size: int = 16,
+                             gradient_accumulation_steps: int = 4,
+                             learning_rate: float = 0.001,
+                             label_smoothing: float = 0,
+                             device_type: str = 'cuda:0',
+                             model_checkpoint: str = 'Salesforce/codet5p-110m-embedding'
+                             ):
+    device = torch.device(device_type)
+
+    peft_config = AdaLoraConfig(
+        target_r=adalora_target_r,
+        init_r=adalora_init_r,
+        lora_alpha=adalora_alpha,
+        lora_dropout=adalora_dropout,
+        bias=adalora_bias,
+        target_modules=list(adalora_target_models),
     )
     embeddings_model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
 
@@ -322,6 +393,73 @@ def train_seq2seq_lora(output_dir: str,
                   gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
+def train_seq2seq_ia3(output_dir: str,
+                      epochs: int,
+                      language: str,
+                      target_modules='qv',
+                      model_max_src_length: int = 320,
+                      model_max_tgt_length: int = 128,
+                      train_batch_size: int = 32,
+                      eval_batch_size: int = 16,
+                      gradient_accumulation_steps: int = 4,
+                      warmup_steps: int = 200,
+                      fp16: bool = False,
+                      device_type: str = 'cuda:0',
+                      model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    device = torch.device(device_type)
+
+    peft_config = IA3Config(
+        task_type=TaskType.SEQ_2_SEQ_LM,
+        target_modules=list(target_modules) + ['o'],
+        feedforward_modules=['o']
+    )
+    model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
+
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
+
+    tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
+                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+
+
+def train_seq2seq_adalora(output_dir: str,
+                          epochs: int,
+                          language: str,
+                          adalora_target_r: int = 8,
+                          adalora_init_r: int = 12,
+                          adalora_alpha: int = 32,
+                          adalora_dropout: float = 0.1,
+                          adalora_bias: str = 'none',
+                          adalora_target_models: str = 'qv',
+                          model_max_src_length: int = 320,
+                          model_max_tgt_length: int = 128,
+                          train_batch_size: int = 32,
+                          eval_batch_size: int = 16,
+                          gradient_accumulation_steps: int = 4,
+                          warmup_steps: int = 200,
+                          fp16: bool = False,
+                          device_type: str = 'cuda:0',
+                          model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    device = torch.device(device_type)
+    peft_config = AdaLoraConfig(
+        target_r=adalora_target_r,
+        init_r=adalora_init_r,
+        lora_alpha=adalora_alpha,
+        lora_dropout=adalora_dropout,
+        bias=adalora_bias,
+        target_modules=list(adalora_target_models),
+        task_type=TaskType.SEQ_2_SEQ_LM,
+    )
+
+    model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
+
+    raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
+
+    tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
+                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+
+
 if __name__ == '__main__':
     sys.path.append(os.getcwd())
     torch.manual_seed(0)
@@ -336,10 +474,14 @@ if __name__ == '__main__':
             'seq2seq': {
                 'lora': train_seq2seq_lora,
                 'prefix': train_seq2seq_prefix,
+                'ia3': train_seq2seq_ia3,
+                'adalora': train_seq2seq_adalora,
             },
             'embeddings': {
                 'lora': train_embeddings_lora,
                 'prompt': train_embeddings_prompt,
+                'ia3': train_embeddings_ia3,
+                'adalora': train_embeddings_adalora,
             },
         }
     )
