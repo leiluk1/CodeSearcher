@@ -55,6 +55,7 @@ def train_seq2seq(model,
                   tokenized_dataset,
                   output_dir: str,
                   epochs: int,
+                  learning_rate: float,
                   train_batch_size: int = 32,
                   eval_batch_size: int = 16,
                   gradient_accumulation_steps: int = 4,
@@ -83,7 +84,7 @@ def train_seq2seq(model,
     arguments = Seq2SeqTrainingArguments(
         output_dir,
         evaluation_strategy="epoch",
-        learning_rate=2e-5,
+        learning_rate=learning_rate,
         per_device_train_batch_size=train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
         weight_decay=0.01,
@@ -336,6 +337,7 @@ def train_seq2seq_prefix(output_dir: str,
                          num_virtual_tokens: int = 10,
                          model_max_src_length: int = 320,
                          model_max_tgt_length: int = 128,
+                         learning_rate: float = 0.001,
                          train_batch_size: int = 32,
                          eval_batch_size: int = 16,
                          gradient_accumulation_steps: int = 4,
@@ -355,8 +357,8 @@ def train_seq2seq_prefix(output_dir: str,
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length,
                                                num_virtual_tokens)
-    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, learning_rate, train_batch_size,
+                  eval_batch_size, gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 def train_seq2seq_lora(output_dir: str,
@@ -368,6 +370,7 @@ def train_seq2seq_lora(output_dir: str,
                        lora_bias: str = 'none',
                        model_max_src_length: int = 320,
                        model_max_tgt_length: int = 128,
+                       learning_rate: float = 0.001,
                        train_batch_size: int = 32,
                        eval_batch_size: int = 16,
                        gradient_accumulation_steps: int = 4,
@@ -389,8 +392,8 @@ def train_seq2seq_lora(output_dir: str,
     raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
-    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, learning_rate, train_batch_size,
+                  eval_batch_size, gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 def train_seq2seq_ia3(output_dir: str,
@@ -399,6 +402,7 @@ def train_seq2seq_ia3(output_dir: str,
                       target_modules='qv',
                       model_max_src_length: int = 320,
                       model_max_tgt_length: int = 128,
+                      learning_rate: float = 0.001,
                       train_batch_size: int = 32,
                       eval_batch_size: int = 16,
                       gradient_accumulation_steps: int = 4,
@@ -418,8 +422,8 @@ def train_seq2seq_ia3(output_dir: str,
     raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
-    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, learning_rate, train_batch_size,
+                  eval_batch_size, gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 def train_seq2seq_adalora(output_dir: str,
@@ -433,6 +437,7 @@ def train_seq2seq_adalora(output_dir: str,
                           adalora_target_models: str = 'qv',
                           model_max_src_length: int = 320,
                           model_max_tgt_length: int = 128,
+                          learning_rate: float = 0.001,
                           train_batch_size: int = 32,
                           eval_batch_size: int = 16,
                           gradient_accumulation_steps: int = 4,
@@ -456,8 +461,8 @@ def train_seq2seq_adalora(output_dir: str,
     raw_dataset = DATASET_MAP[language](max_length=model_max_src_length)
 
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, model_max_src_length, model_max_tgt_length, 0)
-    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, train_batch_size, eval_batch_size,
-                  gradient_accumulation_steps, warmup_steps, fp16, device_type)
+    train_seq2seq(model, tokenizer, tokenized_dataset, output_dir, epochs, learning_rate, train_batch_size,
+                  eval_batch_size, gradient_accumulation_steps, warmup_steps, fp16, device_type)
 
 
 if __name__ == '__main__':

@@ -16,7 +16,8 @@ def evaluation(model, test_loader, device, desc='Test set MRR = '):
     model.eval()
     test_text_embeddings = []
     test_code_embeddings = []
-    is_encoder_only = '220m-bimodal' not in str(type(model))  # Rethink this later
+    model_type = str(type(model)).lower()
+    is_encoder_only = '220m-bimodal' not in model_type and 'seq2seq' not in model_type
     for i, batch in tqdm(enumerate(test_loader), total=len(test_loader), desc='Testing the model', position=0):
         batch.to(device)
         text_batch = batch.pop("labels")
