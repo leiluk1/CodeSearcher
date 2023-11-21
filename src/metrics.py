@@ -16,7 +16,7 @@ def mrr(similarity_matrix):
     found = similarity_matrix.argsort(-1, descending=True)
     ranks = []
     for i in range(found.shape[0]):
-        rank = 1 + np.where(found[i] == i)[0]
+        rank = 1 + np.where(found[i] == i)[0][0]
         ranks.append(1 / rank if rank < 1000 else 0)
     return np.mean(ranks).astype(float)
 
