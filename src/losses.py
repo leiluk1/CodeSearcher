@@ -21,7 +21,7 @@ class TextCodeContrastiveLoss(torch.nn.Module):
 
         gt_t = torch.arange(text_batch.shape[0], device=text_batch.device)
         gt_c = torch.arange(code_batch.shape[0], device=code_batch.device)
-        loss = 0.5 * self.H(text2code / T, gt_t) + 0.5 * self.H(code2text / T, gt_c) # 20 is just a scaling constant
+        loss = 0.5 * self.H(text2code / T, gt_t) + 0.5 * self.H(code2text / T, gt_c)
 
         return loss
 
