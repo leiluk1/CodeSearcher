@@ -35,13 +35,15 @@ def _code_tokens_to_str(tokens: list):
             line = ''
         else:
             line += token + " "
+    if len(line) > 0:
+        result += ('\n' + '\t' * indent_level + line)
     return result[1:]
 
 
 class XLCoSTDataset:
 
     def __init__(self, mode, language, generation: bool = False, level: str = 'snippet', download: bool = False,
-                 min_tokens: int = 3):
+                 min_tokens: int = 5):
         assert mode in MODES, f'Unsupported mode {mode}'
         assert language in LANGUAGES, f'Unsupported language {language}'
 
@@ -87,9 +89,11 @@ class XLCoSTDataset:
 
     def _process_dataframe(self, dataframe):
         dataframe_trunc = dataframe[dataframe.summary.apply(len) >= self.min_tokens]
-        dataframe_trunc = dataframe_trunc[dataframe_trunc.code_tokens.apply(len) >= self.min_tokens]
 
         dataframe_trunc['code_tokens'] = dataframe_trunc['code_tokens'].apply(_code_tokens_to_str)
+        dataframe_trunc = dataframe_trunc[
+            dataframe_trunc.code_tokens.apply(lambda x: len(x.split())) >= self.min_tokens
+            ]
         dataframe_trunc['summary'] = dataframe_trunc['summary'].apply(lambda x: " ".join(x))
         return dataframe_trunc
 
