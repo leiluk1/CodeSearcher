@@ -1,0 +1,22 @@
+{
+  "auto_mapping": {
+    "base_model_class": "CodeT5pEmbeddingModel",
+    "parent_library": "transformers_modules.Salesforce.codet5p-110m-embedding.94f88f95672b1d4b0cc715c6011001a74f892bdd.modeling_codet5p_embedding"
+  },
+  "base_model_name_or_path": "Salesforce/codet5p-110m-embedding",
+  "fan_in_fan_out": false,
+  "feedforward_modules": [
+    "o"
+  ],
+  "inference_mode": true,
+  "init_ia3_weights": true,
+  "modules_to_save": null,
+  "peft_type": "IA3",
+  "revision": null,
+  "target_modules": [
+    "q",
+    "o",
+    "v"
+  ],
+  "task_type": null
+}
