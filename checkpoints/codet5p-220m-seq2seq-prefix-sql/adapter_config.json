@@ -1,0 +1,15 @@
+{
+  "auto_mapping": null,
+  "base_model_name_or_path": "Salesforce/codet5p-220m-bimodal",
+  "encoder_hidden_size": 768,
+  "inference_mode": true,
+  "num_attention_heads": 12,
+  "num_layers": 12,
+  "num_transformer_submodules": 2,
+  "num_virtual_tokens": 10,
+  "peft_type": "PREFIX_TUNING",
+  "prefix_projection": false,
+  "revision": null,
+  "task_type": "SEQ_2_SEQ_LM",
+  "token_dim": 768
+}
