@@ -1,0 +1,19 @@
+{
+  "auto_mapping": null,
+  "base_model_name_or_path": "Salesforce/codet5p-220m-bimodal",
+  "fan_in_fan_out": false,
+  "feedforward_modules": [
+    "o"
+  ],
+  "inference_mode": true,
+  "init_ia3_weights": true,
+  "modules_to_save": null,
+  "peft_type": "IA3",
+  "revision": null,
+  "target_modules": [
+    "o",
+    "q",
+    "v"
+  ],
+  "task_type": "SEQ_2_SEQ_LM"
+}
