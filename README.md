@@ -8,3 +8,4 @@ This project addresses the task of finding source code given its description. Su
 
 1. Clone this repo
 2. Run `pip install -r src/requirements.txt`
+3. Run `streamlit run app.py`
