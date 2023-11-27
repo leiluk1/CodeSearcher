@@ -15,7 +15,7 @@ def find_nearest(embedding, index, id_map, k=1):
     nearest_codes = [id_map[i] for i in nearest_ids]
     return nearest_codes
 
-def get_decoded_text_from_model(checkpoint_path, input_text, language='SQL'):
+def get_nearest_code_from_model(checkpoint_path, input_text, language='SQL'):
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     device = torch.device(device_type)

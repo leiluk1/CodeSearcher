@@ -1,5 +1,5 @@
 import streamlit as st
-from tests.ui_test import get_decoded_text_from_model
+from tests.ui_test import get_nearest_code_from_model
 
 languages = ["SQL", "C#", "C", "Python", "Java"]
 
@@ -36,8 +36,8 @@ def main():
     # Button to get decoded output
     if st.button("Get Output"):
         model_path = models[selected_model]
-        decoded_output = get_decoded_text_from_model(model_path, input_text, selected_language)
-        st.write("Decoded Output:")
+        decoded_output = get_nearest_code_from_model(model_path, input_text, selected_language)
+        st.write("Output:")
         st.write(decoded_output)
 
 if __name__ == "__main__":
