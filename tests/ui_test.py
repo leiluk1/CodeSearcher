@@ -74,7 +74,7 @@ def get_decoded_text_from_model(checkpoint_path, input_text, language='SQL'):
     codes = raw_dataset['test']['code_tokens']
 
     # Build the Annoy index
-    index = AnnoyIndex(768, 'angular')  # Length of item vector that will be indexed
+    index = AnnoyIndex(embeddings[1], 'angular')  # Length of item vector that will be indexed
     for i, embedding in enumerate(embeddings):
         index.add_item(i, embedding)
     index.build(10)  # 10 trees

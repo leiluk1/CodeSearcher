@@ -1,10 +1,11 @@
 import streamlit as st
 from tests.ui_test import get_decoded_text_from_model
 
-languages = ["C#", "C", "SQL", "Python", "Java"]
+languages = ["SQL", "C#", "C", "Python", "Java"]
 
 # Define the available models
 models = {
+    "prefix-sql": "checkpoints/codet5p-220m-seq2seq/prefix-sql/",
     "adalora-c#": "checkpoints/codet5p-220m-seq2seq/adalora-csharp/",
     "ia3-c": "checkpoints/codet5p-220m-seq2seq/ia3-c/",
     "ia3-c#": "checkpoints/codet5p-220m-seq2seq/ia3-csharp/",
@@ -16,7 +17,6 @@ models = {
     "prefix-c": "checkpoints/codet5p-220m-seq2seq/prefix-c/",
     "prefix-c#": "checkpoints/codet5p-220m-seq2seq/prefix-csharp/",
     "prefix-python": "checkpoints/codet5p-220m-seq2seq/prefix-python/",
-    "prefix-sql": "checkpoints/codet5p-220m-seq2seq/prefix-sql/",
 }
 
 # Streamlit app
