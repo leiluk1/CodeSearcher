@@ -17,7 +17,7 @@ def find_nearest(embedding, index, id_map, k=1):
     return nearest_codes
 
 
-def get_decoded_text_from_model(checkpoint_path, input_text, language='Python'):
+def get_decoded_text_from_model(checkpoint_path, input_text, language='SQL'):
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     device = torch.device(device_type)
@@ -40,18 +40,36 @@ def get_decoded_text_from_model(checkpoint_path, input_text, language='Python'):
 
     raw_dataset = DATASET_MAP[language](max_length=128)
 
-    # print('raw_dataset', raw_dataset)  
     tokenized_dataset = _setup_seq2seq_dataset(raw_dataset, tokenizer, 128, 128, 0)
 
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=config.base_model_name_or_path)
 
-    test_loader = torch.utils.data.DataLoader(tokenized_dataset['test'], batch_size=16, collate_fn=data_collator)
+    test_loader = torch.utils.data.DataLoader(tokenized_dataset['test'], batch_size=16, shuffle=False, collate_fn=data_collator)
 
-    print('tokenized_dataset', tokenized_dataset)
+    test_text_embeddings = []
+    test_code_embeddings = []
+
+    for batch in test_loader:
+        batch.to(device)
+        text_batch = batch.pop("labels")
+
+        with torch.no_grad():
+            if is_encoder_only:
+                test_code_embeddings.append(model(**batch).cpu())
+                test_text_embeddings.append(model(text_batch, attention_mask=(text_batch != 0).int()).cpu())
+            else:
+                test_code_embeddings.append(model.encoder(batch['input_ids']).last_hidden_state[:, 0, :].cpu())
+                test_text_embeddings.append(model.encoder(text_batch).last_hidden_state[:, 0, :].cpu())
+        if len(test_code_embeddings) == float('inf'):
+            break
+
+    test_text_embeddings = np.concatenate(test_text_embeddings, 0)
+    test_code_embeddings = np.concatenate(test_code_embeddings, 0)
+
 
     # Assume embeddings is a list of your code embeddings and codes is a list of the corresponding codes
-    embeddings = ...
-    codes = ...
+    embeddings = test_code_embeddings
+    codes = raw_dataset['test']['code']
 
     # Build the Annoy index
     index = AnnoyIndex(len(embeddings[0]), 'angular')  # Length of item vector that will be indexed
@@ -67,6 +85,6 @@ def get_decoded_text_from_model(checkpoint_path, input_text, language='Python'):
     
     return nearest_codes
 
-# checkpoint_path = "checkpoints/codet5p-220m-seq2seq/prefix-python/"
-# input_text = "print hello world"
-# decoded_text = get_decoded_text_from_model(checkpoint_path, input_text)
+checkpoint_path = "checkpoints/codet5p-220m-seq2seq/prefix-python/"
+input_text = "print hello world"
+decoded_text = get_decoded_text_from_model(checkpoint_path, input_text)
