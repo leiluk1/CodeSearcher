@@ -211,6 +211,24 @@ def train_embeddings_prompt(output_dir: str,
                             device_type: str = 'cuda:0',
                             model_checkpoint: str = 'Salesforce/codet5p-110m-embedding',
                             ):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param num_virtual_tokens: Number of tokens to be prepended to the input on all layers
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param label_smoothing: float from [0;1].
+        Will be passed to CrossEntropy inside contrastive loss (see src/losses.py:TextCodeContrastiveLoss for details)
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
     # PromptEncoderConfig failed to overfit a single batch, so it is PromptTuningConfig used here instead
     peft_config = PromptTuningConfig(
@@ -243,6 +261,28 @@ def train_embeddings_lora(output_dir: str,
                           device_type: str = 'cuda:0',
                           model_checkpoint: str = 'Salesforce/codet5p-110m-embedding'
                           ):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param lora_r: LoRA decomposition rank
+    :param lora_alpha: LoRA hyperparameter alpha
+    :param lora_dropout: LoRA dropout hyperparameter
+    :param lora_bias: If set to True, will add bias to the decomposition
+    :param lora_target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param label_smoothing: float from [0;1].
+        Will be passed to CrossEntropy inside contrastive loss (see src/losses.py:TextCodeContrastiveLoss for details)
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
 
     peft_config = LoraConfig(
@@ -276,6 +316,24 @@ def train_embeddings_ia3(output_dir: str,
                          device_type: str = 'cuda:0',
                          model_checkpoint: str = 'Salesforce/codet5p-110m-embedding'
                          ):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+        :param label_smoothing: float from [0;1].
+        Will be passed to CrossEntropy inside contrastive loss (see src/losses.py:TextCodeContrastiveLoss for details)
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
 
     peft_config = IA3Config(
@@ -300,7 +358,7 @@ def train_embeddings_adalora(output_dir: str,
                              adalora_alpha: int = 32,
                              adalora_dropout: float = 0.1,
                              adalora_bias: str = 'none',
-                             adalora_target_models: str = 'qv',
+                             adalora_target_modules: str = 'qv',
                              model_max_src_length: int = 320,
                              model_max_tgt_length: int = 128,
                              train_batch_size: int = 32,
@@ -311,6 +369,29 @@ def train_embeddings_adalora(output_dir: str,
                              device_type: str = 'cuda:0',
                              model_checkpoint: str = 'Salesforce/codet5p-110m-embedding'
                              ):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param adalora_target_r: Target decomposition rank
+    :param adalora_init_r: Initial decomposition rank
+    :param adalora_alpha: AdaLoRA hyperparameter alpha
+    :param adalora_dropout: AdaLoRA dropout hyperparameter
+    :param adalora_bias: If set to True, will add bias to the decomposition
+    :param adalora_target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param label_smoothing: float from [0;1].
+        Will be passed to CrossEntropy inside contrastive loss (see src/losses.py:TextCodeContrastiveLoss for details)
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
 
     peft_config = AdaLoraConfig(
@@ -319,7 +400,7 @@ def train_embeddings_adalora(output_dir: str,
         lora_alpha=adalora_alpha,
         lora_dropout=adalora_dropout,
         bias=adalora_bias,
-        target_modules=list(adalora_target_models),
+        target_modules=list(adalora_target_modules),
     )
     embeddings_model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
 
@@ -345,6 +426,24 @@ def train_seq2seq_prefix(output_dir: str,
                          fp16: bool = False,
                          device_type: str = 'cuda:0',
                          model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param num_virtual_tokens: Number of tokens to be prepended to the input on all layers
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param warmup_steps: Optimizer and model warmup steps
+    :param fp16: If set to True, reduce precision to 16 bits
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
     peft_config = PrefixTuningConfig(
         task_type=TaskType.SEQ_2_SEQ_LM,
@@ -368,7 +467,7 @@ def train_seq2seq_lora(output_dir: str,
                        lora_alpha: int = 32,
                        lora_dropout: float = 0.1,
                        lora_bias: str = 'none',
-                       lora_target_models: str = 'qv',
+                       lora_target_modules: str = 'qv',
                        model_max_src_length: int = 320,
                        model_max_tgt_length: int = 128,
                        learning_rate: float = 0.001,
@@ -379,6 +478,28 @@ def train_seq2seq_lora(output_dir: str,
                        fp16: bool = False,
                        device_type: str = 'cuda:0',
                        model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param lora_r: Target decomposition rank
+    :param lora_alpha: Initial decomposition rank
+    :param lora_dropout: LoRA dropout hyperparameter
+    :param lora_bias: If set to True, will add bias to the decomposition
+    :param lora_target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param warmup_steps: Optimizer and model warmup steps
+    :param fp16: If set to True, reduce precision to 16 bits
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
 
     peft_config = LoraConfig(
@@ -386,7 +507,7 @@ def train_seq2seq_lora(output_dir: str,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         bias=lora_bias,
-        target_modules=list(lora_target_models),
+        target_modules=list(lora_target_modules),
         task_type=TaskType.SEQ_2_SEQ_LM,
     )
     model, tokenizer = _setup_peft_model(model_checkpoint, peft_config, device)
@@ -412,6 +533,24 @@ def train_seq2seq_ia3(output_dir: str,
                       fp16: bool = False,
                       device_type: str = 'cuda:0',
                       model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    """
+
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param warmup_steps: Optimizer and model warmup steps
+    :param fp16: If set to True, reduce precision to 16 bits
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
 
     peft_config = IA3Config(
@@ -436,7 +575,7 @@ def train_seq2seq_adalora(output_dir: str,
                           adalora_alpha: int = 32,
                           adalora_dropout: float = 0.1,
                           adalora_bias: str = 'none',
-                          adalora_target_models: str = 'qv',
+                          adalora_target_modules: str = 'qv',
                           model_max_src_length: int = 320,
                           model_max_tgt_length: int = 128,
                           learning_rate: float = 0.001,
@@ -447,6 +586,29 @@ def train_seq2seq_adalora(output_dir: str,
                           fp16: bool = False,
                           device_type: str = 'cuda:0',
                           model_checkpoint: str = 'Salesforce/codet5p-220m-bimodal'):
+    """
+    
+    :param output_dir: Where to store the best checkpoint
+    :param epochs: Number of train epochs
+    :param language: PL on which you want to fine-tune
+    :param adalora_target_r: Target decomposition rank
+    :param adalora_init_r: Initial decomposition rank
+    :param adalora_alpha: AdaLoRA hyperparameter alpha
+    :param adalora_dropout: AdaLoRA dropout hyperparameter
+    :param adalora_bias: If set to True, will add bias to the decomposition
+    :param adalora_target_modules: a string, each of letters should be one of ['q', 'k', 'v']
+    :param model_max_src_length: Max text length, in tokens
+    :param model_max_tgt_length: Max code length, in tokens
+    :param learning_rate: Training lr
+    :param train_batch_size:
+    :param eval_batch_size:
+    :param gradient_accumulation_steps: int, is greater than 1, then gradient update will happen after this many batches
+    :param warmup_steps: Optimizer and model warmup steps
+    :param fp16: If set to True, reduce precision to 16 bits
+    :param device_type: torch.device(device_type) will hold the model and the datasets
+    :param model_checkpoint: Model id on HF hub
+    :return: None, save the checkpoint to output_dir and log test MRR to console
+    """
     device = torch.device(device_type)
     peft_config = AdaLoraConfig(
         target_r=adalora_target_r,
@@ -454,7 +616,7 @@ def train_seq2seq_adalora(output_dir: str,
         lora_alpha=adalora_alpha,
         lora_dropout=adalora_dropout,
         bias=adalora_bias,
-        target_modules=list(adalora_target_models),
+        target_modules=list(adalora_target_modules),
         task_type=TaskType.SEQ_2_SEQ_LM,
     )
 

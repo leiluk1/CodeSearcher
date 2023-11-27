@@ -11,7 +11,7 @@ from src.datasets.XLCoST.make_dataset import MODES as XLCOST_MODES
 from src.datasets.XLCoST.make_dataset import XLCoSTDataset
 
 
-def create_python_dataset(max_length):  # subset: str = 'all'
+def create_python_dataset(max_length):
     dataset = datasets.DatasetDict()
     pytorrent_dataframes = [PyTorrentDataset(mode, code_tokens_cutoff_len=max_length).get_pandas() for mode in
                             PYTORRENT_MODES]

@@ -1,0 +1,35 @@
+{
+  "alpha_pattern": {},
+  "auto_mapping": {
+    "base_model_class": "CodeT5pEmbeddingModel",
+    "parent_library": "transformers_modules.Salesforce.codet5p-110m-embedding.94f88f95672b1d4b0cc715c6011001a74f892bdd.modeling_codet5p_embedding"
+  },
+  "base_model_name_or_path": "Salesforce/codet5p-110m-embedding",
+  "beta1": 0.85,
+  "beta2": 0.85,
+  "bias": "none",
+  "deltaT": 1,
+  "fan_in_fan_out": false,
+  "inference_mode": true,
+  "init_lora_weights": true,
+  "init_r": 12,
+  "layers_pattern": null,
+  "layers_to_transform": null,
+  "lora_alpha": 32,
+  "lora_dropout": 0.1,
+  "modules_to_save": null,
+  "orth_reg_weight": 0.5,
+  "peft_type": "ADALORA",
+  "r": 8,
+  "rank_pattern": null,
+  "revision": null,
+  "target_modules": [
+    "q",
+    "v"
+  ],
+  "target_r": 8,
+  "task_type": null,
+  "tfinal": 0,
+  "tinit": 0,
+  "total_step": null
+}
