@@ -10,6 +10,7 @@ models = {
             "prefix": "checkpoints/codet5p-220m-seq2seq/prefix-sql/",
             "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-sql/",
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-sql/",
+            "adalora": "checkpoints/codet5p-220m-seq2seq/adalora-sql/",
         },
         "Csharp": {
             "adalora": "checkpoints/codet5p-220m-seq2seq/adalora-csharp/",
@@ -21,6 +22,7 @@ models = {
             "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-cpp/",
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-cpp/",
             "prefix": "checkpoints/codet5p-220m-seq2seq/prefix-cpp/",
+            "adalora": "checkpoints/codet5p-220m-seq2seq/adalora-cpp/",
         },
         "Python": {
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-python/",
@@ -49,6 +51,8 @@ models = {
             "Python": {
                 "adalora": "checkpoints/codet5p-110m-embedding/adalora-python",
                 "ia3": "checkpoints/codet5p-110m-embedding/ia3-python",
+                "lora": "checkpoints/codet5p-110m-embedding/lora-python",
+                "prompt": "checkpoints/codet5p-110m-embedding/prompt-python",
             },
     
     }
