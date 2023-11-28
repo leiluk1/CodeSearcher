@@ -11,16 +11,16 @@ models = {
             "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-sql/",
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-sql/",
         },
-        "C#": {
+        "Csharp": {
             "adalora": "checkpoints/codet5p-220m-seq2seq/adalora-csharp/",
             "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-csharp/",
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-csharp/",
             "prefix": "checkpoints/codet5p-220m-seq2seq/prefix-csharp/",
         },
-        "C": {
-            "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-c/",
-            "lora": "checkpoints/codet5p-220m-seq2seq/lora-c/",
-            "prefix": "checkpoints/codet5p-220m-seq2seq/prefix-c/",
+        "C++": {
+            "ia3": "checkpoints/codet5p-220m-seq2seq/ia3-cpp/",
+            "lora": "checkpoints/codet5p-220m-seq2seq/lora-cpp/",
+            "prefix": "checkpoints/codet5p-220m-seq2seq/prefix-cpp/",
         },
         "Python": {
             "lora": "checkpoints/codet5p-220m-seq2seq/lora-python/",
@@ -34,7 +34,7 @@ models = {
                 "lora": "checkpoints/codet5p-110m-embedding/lora-sql",
                 "prompt": "checkpoints/codet5p-110m-embedding/prompt-sql",
             },
-            "C#": {
+            "Csharp": {
                 "adalora": "checkpoints/codet5p-110m-embedding/adalora-csharp",
                 "ia3": "checkpoints/codet5p-110m-embedding/ia3-csharp",
                 "lora": "checkpoints/codet5p-110m-embedding/lora-csharp",
