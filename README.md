@@ -15,7 +15,7 @@ Furthermore, our project addresses the issue highlighted in [Scaling Down to Sca
 
 ## Links
 
-1. [Colab with model serving](https://colab.research.google.com/drive/146d-8ngKj4Ox7fuXGXjoCf__v3wmeEAr?authuser=1#scrollTo=1ruac9acOd11)
+1. [Colab with model serving]([https://colab.research.google.com/drive/146d-8ngKj4Ox7fuXGXjoCf__v3wmeEAr?authuser=1#scrollTo=1ruac9acOd11](https://colab.research.google.com/drive/146d-8ngKj4Ox7fuXGXjoCf__v3wmeEAr?usp=sharing))
 2. [Final report](https://drive.google.com/file/d/1fBEQi59A6q0w_dSAGYs5t4Y3N3VrYtk9/view?usp=sharing)
 
 ## Credits
