@@ -9,7 +9,7 @@ Furthermore, our project addresses the issue highlighted in [Scaling Down to Sca
 ## Installation 
 
 1. Clone this repo
-2. Run `pip install -r src/requirements.txt`
+2. Run `pip install -r requirements.txt`
 3. Run `streamlit run app.py`
 
 
