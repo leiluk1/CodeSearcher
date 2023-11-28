@@ -1,7 +1,7 @@
 import streamlit as st
 from tests.ui_test import get_nearest_code_from_model
 
-languages = ["SQL", "C#", "C", "Python", "Java"]
+languages = ["SQL", "Csharp", "C", "Python", "Java"]
 
 # Define the available models
 models = {
