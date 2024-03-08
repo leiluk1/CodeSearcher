@@ -1,14 +1,18 @@
 import os
 import sys
+from functools import partial
 
 import numpy as np
 import torch
+import torch.utils.data
 from fire import Fire
 from loguru import logger
 from peft import PeftModel, PeftConfig
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import AutoModel, AutoTokenizer, DataCollatorForSeq2Seq
+
+CSN_BATCH_SIZE = 1000
 
 
 def evaluation(model, test_loader, device, desc='Test set MRR = ', max_batches=float('inf')):
@@ -51,8 +55,44 @@ def evaluation(model, test_loader, device, desc='Test set MRR = ', max_batches=f
     logger.info(f'{desc}{test_MRR}')
 
 
+def evaluation_csn(model, test_loader: torch.utils.data.DataLoader, device, desc='Test set MRR = ', **kwargs):
+    from src.metrics import mrr
+
+    model.eval()
+    test_text_embeddings = []
+    test_code_embeddings = []
+    model_type = str(type(model)).lower()
+    is_encoder_only = '220m-bimodal' not in model_type and 'seq2seq' not in model_type
+
+    test_sum_MRR = 0
+    for i, batch in tqdm(enumerate(test_loader), total=len(test_loader),
+                         desc='Testing the model', position=0):
+        batch.to(device)
+        text_batch = batch.pop("labels")
+
+        with torch.no_grad():
+            if is_encoder_only:
+                test_code_embeddings.append(model(**batch).cpu())
+                test_text_embeddings.append(model(text_batch, attention_mask=(text_batch != 0).int()).cpu())
+            else:
+                test_code_embeddings.append(model.encoder(batch['input_ids']).last_hidden_state[:, 0, :].cpu())
+                test_text_embeddings.append(model.encoder(text_batch).last_hidden_state[:, 0, :].cpu())
+        if len(test_code_embeddings) == CSN_BATCH_SIZE // test_loader.batch_size:
+            test_text_embeddings = np.concatenate(test_text_embeddings, 0)
+            test_code_embeddings = np.concatenate(test_code_embeddings, 0)
+            similarity_matrix = test_text_embeddings @ test_code_embeddings.T
+            assert similarity_matrix.shape == (
+            1000, 1000), f'Similarity matrix should have shape (1000, 1000), found: {similarity_matrix.shape}'
+            test_sum_MRR += mrr(similarity_matrix)
+            test_text_embeddings = []
+            test_code_embeddings = []
+    num_csn_batches = len(test_loader.dataset) // CSN_BATCH_SIZE
+    logger.info(f'{desc}{test_sum_MRR / num_csn_batches}')
+
+
 def eval_peft_model(tuned_ckpt_path: str,
                     language: str,
+                    evaluation_functon,
                     model_max_src_length: int = 128,
                     model_max_tgt_length: int = 128,
                     batch_size: int = 16,
@@ -62,6 +102,7 @@ def eval_peft_model(tuned_ckpt_path: str,
 
     :param tuned_ckpt_path: Local checkpoint path (for instance, "checkpoints/codet5p-110m-embedding/adalora-cpp")
     :param language: str, language to test the model on
+    :param evaluation_functon:
     :param model_max_src_length: Max tokens in text encoding
     :param model_max_tgt_length: max tokens in code encoding
     :param batch_size: testing dataloader's batch size
@@ -89,11 +130,12 @@ def eval_peft_model(tuned_ckpt_path: str,
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=config.base_model_name_or_path)
 
     test_loader = DataLoader(tokenized_dataset['test'], batch_size=batch_size, shuffle=False, collate_fn=data_collator)
-    evaluation(model, test_loader, device, desc=f'Test MRR for {language} = ', max_batches=max_batches)
+    evaluation_functon(model, test_loader, device, desc=f'Test MRR for {language} = ', max_batches=max_batches)
 
 
 def eval_base_model(model_name: str,
                     language: str,
+                    evaluation_function,
                     model_max_src_length: int = 128,
                     model_max_tgt_length: int = 128,
                     batch_size: int = 16,
@@ -103,6 +145,7 @@ def eval_base_model(model_name: str,
 
     :param model_name: Model checkpoint on huggingface hub, for instance, "Salesforce/codet5p-110m-embedding"
     :param language: str, language to test the model on
+    :param evaluation_function:
     :param model_max_src_length: Max tokens in text encoding
     :param model_max_tgt_length: max tokens in code encoding
     :param batch_size: testing dataloader's batch size
@@ -111,8 +154,10 @@ def eval_base_model(model_name: str,
     :param device_type: torch.device(device_type) will contain the model
     :return: None, print MRR to the std output
     """
-    device = torch.device(device_type)
+    assert (evaluation_function == evaluation_csn and CSN_BATCH_SIZE % batch_size == 0) \
+           or evaluation_function == evaluation, f'For CSN evaluation batch_size should be a divisor of 1000)'
 
+    device = torch.device(device_type)
     model = AutoModel.from_pretrained(model_name, device_map={"": 0}, trust_remote_code=True)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
@@ -122,7 +167,7 @@ def eval_base_model(model_name: str,
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_name)
 
     test_loader = DataLoader(tokenized_dataset['test'], batch_size=batch_size, shuffle=False, collate_fn=data_collator)
-    evaluation(model, test_loader, device, desc=f'Test 0-shot MRR for {language} = ', max_batches=max_batches)
+    evaluation_function(model, test_loader, device, desc=f'Test 0-shot MRR for {language} = ', max_batches=max_batches)
 
 
 if __name__ == '__main__':
@@ -132,6 +177,12 @@ if __name__ == '__main__':
     from src.models.train import _setup_seq2seq_dataset
 
     Fire({
-        'base': eval_base_model,
-        'peft': eval_peft_model,
+        'base': {
+            'codebert': partial(eval_base_model, evaluation_function=evaluation),
+            'csn': partial(eval_base_model, evaluation_function=evaluation_csn)
+        },
+        'peft': {
+            'codebert': partial(eval_peft_model, evaluation_function=evaluation),
+            'csn': partial(eval_peft_model, evaluation_function=evaluation_csn)
+        }
     })

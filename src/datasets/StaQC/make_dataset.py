@@ -63,8 +63,7 @@ class StaQCDataset:
         self.min_tokens = min_tokens
         
         self.dataframe = self._load_dataframe()
-        # print(self.dataframe.sample(5))
-        
+
         logger.info(f'StaQC {language} {mode} dataset length: {len(self.dataframe)}')
 
     def _load_dataframe(self):
