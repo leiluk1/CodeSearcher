@@ -92,7 +92,7 @@ def evaluation_csn(model, test_loader: torch.utils.data.DataLoader, device, desc
 
 def eval_peft_model(tuned_ckpt_path: str,
                     language: str,
-                    evaluation_functon,
+                    evaluation_function,
                     model_max_src_length: int = 128,
                     model_max_tgt_length: int = 128,
                     batch_size: int = 16,
@@ -130,7 +130,7 @@ def eval_peft_model(tuned_ckpt_path: str,
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=config.base_model_name_or_path)
 
     test_loader = DataLoader(tokenized_dataset['test'], batch_size=batch_size, shuffle=False, collate_fn=data_collator)
-    evaluation_functon(model, test_loader, device, desc=f'Test MRR for {language} = ', max_batches=max_batches)
+    evaluation_function(model, test_loader, device, desc=f'Test MRR for {language} = ', max_batches=max_batches)
 
 
 def eval_base_model(model_name: str,

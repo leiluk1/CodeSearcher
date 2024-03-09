@@ -42,16 +42,18 @@ Question: {question}""",
 
 
 class CodeT5PlusEmbedder(BaseModel, Embeddings, extra='allow'):
-    def __init__(self, tuned_ckpt_path, device_type='cuda:0', pbar=True, *args, **kwargs):
+    def __init__(self, model_name_or_path, device_type='cuda', pbar=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.device = torch.device(device_type)
-        config = PeftConfig.from_pretrained(tuned_ckpt_path)
-
-        model = AutoModel.from_pretrained(config.base_model_name_or_path, device_map={"": 0}, trust_remote_code=True)
-        self.model = PeftModel.from_pretrained(model, tuned_ckpt_path).to(self.device)
-        self.tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path, trust_remote_code=True)
-
-        self.data_collator = DataCollatorForSeq2Seq(tokenizer=self.tokenizer, model=config.base_model_name_or_path)
+        try:
+            config = PeftConfig.from_pretrained(model_name_or_path)
+            model = AutoModel.from_pretrained(config.base_model_name_or_path, device_map={"": 0}, trust_remote_code=True)
+            self.model = PeftModel.from_pretrained(model, model_name_or_path).to(self.device)
+            self.tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path, trust_remote_code=True)
+        except:
+            self.model = AutoModel.from_pretrained(model_name_or_path, device_map={"": 0}, trust_remote_code=True).to(self.device)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+        self.data_collator = DataCollatorForSeq2Seq(tokenizer=self.tokenizer, model=model_name_or_path)
         self.pbar = pbar
 
     def _inference(self, texts: List[str]) -> List[List[float]]:
@@ -76,7 +78,7 @@ class CodeT5PlusEmbedder(BaseModel, Embeddings, extra='allow'):
         return self._inference([text])[0]
 
 
-def construct_pipeline(tuned_ckpt_path, language, reader_name, device_type='cuda:0', is_interactive=True):
+def construct_pipeline(tuned_ckpt_path, language, reader_name, device_type='cuda', is_interactive=True):
     embedder = CodeT5PlusEmbedder(tuned_ckpt_path, device_type=device_type, pbar=is_interactive)
     logger.info('Embedder model created')
     raw_dataset = load_dataset("code_search_net", language)['test'].to_pandas()
@@ -130,11 +132,11 @@ def rag_inference(reader_llm, vector_db, rag_prompt, query):
     return answer
 
 
-def rag_benchmarking(embedder_path,
+def rag_benchmarking(embedder_name_or_path,
                      language,
-                     reader_name="deepseek-ai/deepseek-coder-1.3b-base",
+                     reader_name="deepseek-ai/deepseek-coder-6.7b-instruct",
                      device_type="cuda"):
-    reader_llm, vector_db, rag_prompt, dataset = construct_pipeline(embedder_path, reader_name=reader_name,
+    reader_llm, vector_db, rag_prompt, dataset = construct_pipeline(embedder_name_or_path, reader_name=reader_name,
                                                                     language=language, device_type=device_type,
                                                                     is_interactive=False)
     rouge = evaluate.load("rouge")
