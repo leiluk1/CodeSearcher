@@ -1,10 +1,10 @@
 # CodeSearcher
 
-## Project description
+## Paper description
 
-This project addresses the task of finding source code given its description. Such a tool could be useful for both experienced and novice programmers for development and learning augmentation. Moreover, this tool could help gather specifically themed code data sets. 
+This work addresses the task of finding source code given its description. Such a tool could be useful for both experienced and novice programmers for development and learning augmentation. Moreover, this tool could help gather specifically themed code data sets. 
 
-Furthermore, our project addresses the issue highlighted in [Scaling Down to Scale Up](https://arxiv.org/pdf/2303.15647.pdf): the lack of sufficient bench-marking for Parameter-Efficient Fine-Tuning (PEFT) methods. More specifically, we have developed a framework for [CodeT5+](https://arxiv.org/pdf/2305.07922.pdf) efficient fine-tuning and evaluation on various programming language data sets, providing the checkpoints for them.
+Furthermore, our paper addresses the issue highlighted in [Scaling Down to Scale Up](https://arxiv.org/pdf/2303.15647.pdf): the lack of sufficient bench-marking for Parameter-Efficient Fine-Tuning (PEFT) methods. More specifically, we have developed a framework for [CodeT5+](https://arxiv.org/pdf/2305.07922.pdf) efficient fine-tuning and evaluation on various programming language data sets, providing the checkpoints for them.
 
 ## Installation 
 
@@ -13,14 +13,14 @@ Furthermore, our project addresses the issue highlighted in [Scaling Down to Sca
 3. Run `streamlit run app.py`
 
 
-## Links
+## Links and news
 
-1. [Colab with model serving](https://colab.research.google.com/drive/146d-8ngKj4Ox7fuXGXjoCf__v3wmeEAr?usp=sharing)
-2. [Final report](https://drive.google.com/file/d/1fBEQi59A6q0w_dSAGYs5t4Y3N3VrYtk9/view?usp=sharing)
+1. [Paper preprint](http://arxiv.org/abs/2405.04126)
+2. Accepted for AINL-2024, recieved best paper award
 
 ## Credits
 
-This project is intended for the project part in the Practical Machine Learning and Deep Learning course at Innopolis University.
+We would like to express our thanks to Innopolis University for providing part of resources and facilities that were essential for conducting the experiments in this work. We extend our sincere gratitude to Professor V. Ivanov from Innopolis University for his invaluable guidance and support throughout our research. 
 
 Project developed and done by:
 * Leila Khaertdinova, l.khaertdinova@innopolis.university
