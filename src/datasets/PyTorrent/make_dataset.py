@@ -95,4 +95,4 @@ class PyTorrentDataset:
 
 
 if __name__ == '__main__':
-    sample_set = PyTorrentDataset('train', download=False, reload=True, max_chunks=-1)
+    sample_set = PyTorrentDataset('test', download=False, reload=True, max_chunks=-1)
